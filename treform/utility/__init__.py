@@ -1,3 +1,4 @@
+from treform.utility import *
 
 from gensim.models import fasttext
 from soynlp.hangle import decompose, compose
