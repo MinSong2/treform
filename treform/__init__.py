@@ -17,9 +17,15 @@ from treform.noun_extractor import *
 from treform.pmi import *
 from treform.collector import *
 from treform.utility import *
+from treform.abbreviations import *
+from treform.synonym import *
+from treform.syntactic_parser import *
+#from treform.spelling import *
 
 from os import listdir
 from .version import __version__
+
+import pandas as pd
 
 class Pipeline:
     def __init__(self, *pipelines):
@@ -212,10 +218,7 @@ class CorpusFromFieldDelimitedFileForClassification(Corpus):
         self.docs = array
         self.pair_map = pair_map
 
-
-
 class CorpusFromDirectory(Corpus):
-
     def __init__(self, directory, is_train):
         array = []
 
@@ -240,7 +243,6 @@ class CorpusFromDirectory(Corpus):
 
         self.docs = array
 
-
 class CorpusFromFieldDelimitedEmojiFile(Corpus):
     def __init__(self, file, index):
         import re
@@ -261,3 +263,15 @@ class CorpusFromFieldDelimitedEmojiFile(Corpus):
                     print('line number', line_number, 'txt 파일에서 확인요망')
                     array.append()
         self.docs = array
+
+class CorpusByDataFrame(Corpus):
+    def __init__(self, file, delimiter, index, header=False):
+        if header == False:
+            df = pd.read_csv(file, delimiter=delimiter, header=None)
+        else:
+            df = pd.read_csv(file, delimiter=delimiter)
+        selected = df.iloc[:,[index]]
+        docs = []
+        for s in selected.astype(str).values.tolist():
+            docs.append(s[0])
+        self.docs = docs
