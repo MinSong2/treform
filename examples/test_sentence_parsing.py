@@ -5,8 +5,10 @@ from nltk.draw.tree import draw_trees
 from nltk import tree, treetransforms
 from copy import deepcopy
 
+mecab_path='C:\\mecab\\mecab-ko-dic'
+
 pipeline = ptm.Pipeline(ptm.splitter.NLTK(),
-                        ptm.tokenizer.Komoran(),
+                        ptm.tokenizer.MeCab(mecab_path),
                         ptm.syntactic_parser.BeneparSyntacticParser()
                         )
 corpus = ptm.CorpusByDataFrame('../sample_data/parser_sample.txt', '\t', 0, header=False)
