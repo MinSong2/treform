@@ -1,5 +1,6 @@
 
 from krwordrank.word import KRWordRank
+from joblib import load
 
 class BaseKeywordExtraction:
     IN_TYPE = [str]
@@ -19,6 +20,41 @@ class TextRankExtractor(BaseKeywordExtraction):
         for sent in sents:
             self.inst.build_keywords(sent)
         return self.inst.get_keywords(self.max,self.combined_keywords)
+
+
+class MLKeyphraseExtractor(BaseKeywordExtraction):
+    def __init__(self, language='ko', model_name='../../models/svm_keyphrase.model'):
+        self.model = load(model_name)
+        self.language=language
+
+    def __call__(self, *args, **kwargs):
+
+        from treform.keyword.ml_keyword_builder import get_features
+        from treform.keyword.ml_keyword_extractor import extract_candidate_keywords, \
+            extract_candidate_keywords_for_training
+
+        self.OUT_TYPE = [list, str]
+        feature_list = []
+
+        candidates = extract_candidate_keywords_for_training(args[0], language=self.language)
+        set_candidates = set(candidates)
+        unique_list = list(set_candidates)
+        if len(candidates) > 0:
+            feature_list.extend([(get_features(args[0], key, candidates, 0, language=self.language)) for key in set_candidates])
+        #for features in feature_list:
+        #print(set_candidates)
+        #print(feature_list)
+        preds = self.model.classify_many(feature_list)
+        #self.model.prob_classify_many(feature_list)
+        labels = self.model.labels()
+        #print(labels)
+        print(preds)
+        keyphrases = []
+        for i, each_pred in enumerate(preds):
+            if each_pred == 1:
+                keyphrase = unique_list[i]
+                keyphrases.append(keyphrase)
+        return keyphrases
 
 class TextRankSummarizer(BaseKeywordExtraction):
     def __init__(self,pos_tagger_name=None,mecab_path=None,max=3):
