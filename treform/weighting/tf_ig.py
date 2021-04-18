@@ -58,7 +58,8 @@ def tf_ig(corpus,package):
 		for word in dictlist[labell]:
 			tf_ig[labell][word] = dictlist[labell][word]*1.0 /(doclen[labell]*1.0)
 			if word in weights[labell]:
-				tf_ig[labell][word] *= weights[labell][word]
+				tf_ig[labell][word] *= abs(weights[labell][word])
+
 
 	package ["labelset"] = labelset
 	package ["weights"] = weights

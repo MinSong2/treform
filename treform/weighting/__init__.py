@@ -24,16 +24,19 @@ class BaseWeighting:
         self.package["doclist"] = []
         self.package["docname"] = set()
 
-    def preprocess(self, input):
+    def preprocess(self, input, label_list=[]):
         vocafreq = self.package["vocafreq"]
         labelset = self.package["labelset"]
         corpus = []
         doccount = {}
 
         label = 'UNI'
-        for _doc in input:
+        for i, _doc in enumerate(input):
             document = {}
-            document["label"] = label
+            if len(label_list) > 0:
+                document["label"] = label_list[i]
+            else:
+                document["label"] = label
             if label not in doccount:
                 doccount[label] = 0
             doccount[label] += 1
@@ -63,9 +66,9 @@ class BaseWeighting:
         return corpus
 
 class TfIdf(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_idf(self.corpus, self.package)
@@ -73,9 +76,9 @@ class TfIdf(BaseWeighting):
         return weights
 
 class TfBdc(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_bdc(self.corpus, self.package)
@@ -83,9 +86,9 @@ class TfBdc(BaseWeighting):
         return weights
 
 class IqfQfIcf(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = iqf_qf_icf(self.corpus, self.package)
@@ -93,9 +96,9 @@ class IqfQfIcf(BaseWeighting):
         return weights
 
 class TfChi(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_chi(self.corpus, self.package)
@@ -103,9 +106,9 @@ class TfChi(BaseWeighting):
         return weights
 
 class TfDc(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_dc(self.corpus, self.package)
@@ -113,9 +116,9 @@ class TfDc(BaseWeighting):
         return weights
 
 class TfEccd(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_eccd(self.corpus, self.package)
@@ -123,9 +126,9 @@ class TfEccd(BaseWeighting):
         return weights
 
 class TfIg(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_ig(self.corpus, self.package)
@@ -133,9 +136,9 @@ class TfIg(BaseWeighting):
         return weights
 
 class TfRf(BaseWeighting):
-    def __init__(self, input):
+    def __init__(self, input, label_list=[]):
         super().__init__()
-        self.corpus = super().preprocess(input)
+        self.corpus = super().preprocess(input, label_list=label_list)
 
     def __call__(self):
         weights = tf_rf(self.corpus, self.package)
