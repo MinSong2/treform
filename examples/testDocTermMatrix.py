@@ -1,6 +1,40 @@
 import sklearn
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import treform as ptm
+import nltk
+import string
+from collections import defaultdict
+
+def vectorizeCaseZero():
+    documents = [
+                 'This is the first document.',
+                 'This document is the second document.',
+                 'And this is the third one.',
+                 'Is this the first document?',
+                ]
+
+    stem = nltk.stem.SnowballStemmer('english')
+
+    def tokenize(text):
+        stem = nltk.stem.SnowballStemmer('english')
+        text = text.lower()
+
+        for token in nltk.word_tokenize(text):
+            if token in string.punctuation: continue
+            yield stem.stem(token)
+
+    def vectorize(doc):
+        features = defaultdict(int)
+        for token in tokenize(doc):
+            features[token] += 1
+        return features
+
+    vectors = map(vectorize, documents)
+
+    for doc in vectors:
+        for word in doc:
+            print(str(word) + ' ' + str(doc[word]))
+        print('------------------')
 
 def vectorizeCaseOne():
     documents = [
@@ -21,17 +55,16 @@ def vectorizeCaseOne():
     print(X.toarray())
 
 def vectorizeCaseTwo():
-    corpus = ptm.CorpusFromFieldDelimitedFile('../data/donald.txt',2)
+    corpus = ptm.CorpusFromFieldDelimitedFile('../sample_data/donald.txt',2)
 
     pipeline = ptm.Pipeline(ptm.splitter.NLTK(),
                             ptm.tokenizer.Komoran(),
                             ptm.helper.POSFilter('NN*'),
                             ptm.helper.SelectWordOnly(),
                             ptm.ngram.NGramTokenizer(2, 2),
-                            ptm.helper.StopwordFilter(file='./stopwords/stopwordsKor.txt')
+                            ptm.helper.StopwordFilter(file='../stopwords/stopwordsKor.txt')
                             )
     result = pipeline.processCorpus(corpus)
-    print('== 형태소 분석 + 명사만 추출 + 단어만 보여주기 + 빈도 분석 ==')
     print(result)
     print()
 
@@ -57,8 +90,9 @@ def vectorizeCaseTwo():
     print(len(vectorizer.get_feature_names()))
     print(X.toarray())
 
+vectorizeCaseZero()
 
 #vectorizeCaseOne()
 
-vectorizeCaseTwo()
+#vectorizeCaseTwo()
 
