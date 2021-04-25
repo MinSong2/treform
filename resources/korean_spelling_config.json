@@ -1,4 +1,5 @@
 {
   "WIKIPEDIA_DIR":"D:\\python_workspace\\treform\\treform\\spelling",
-  "HOME_DIR":"D:\\python_workspace\\treform"
+  "HOME_DIR":"D:\\python_workspace\\treform",
+  "SPELLING_MODEL_DIR":"D:\\python_workspace\\treform\\spelling_training\\models\\spelling_error_correction\\spelling_error_correction_model.sentences=3.window_size=10.noise_rate=0.1.n_hidden=100"
 }
