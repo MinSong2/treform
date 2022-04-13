@@ -5,6 +5,7 @@ from nltk import bigrams
 from collections import defaultdict
 import operator
 import numpy as np
+import platform
 
 class BaseCooccurrence:
     INPUT=[list,str]
@@ -19,7 +20,6 @@ class CooccurrenceWorker(BaseCooccurrence):
         self.inst = co.Cooccurrence(ngram_range=(2, 2), stop_words='english')
 
     def __call__(self, *args, **kwargs):
-
         # bigram_vectorizer = CountVectorizer(ngram_range=(1, 2), vocabulary={'awesome unicorns': 0, 'batman forever': 1})
         co_occurrences = self.inst.fit_transform(args[0])
         # print('Printing sparse matrix:', co_occurrences)
@@ -108,4 +108,39 @@ class CooccurrenceManager:
         terms_max = sorted(com_max, key=operator.itemgetter(1), reverse=True)
 
         return terms_max, uniqueList
+
+
+class CooccurrenceExternalManager():
+    def __init__(self, program_path='./external_program', input_file='', output_file='', threshold=2, num_workers=3):
+        print('running external program')
+        self.program_path = program_path
+        self.input_file = input_file
+        self.output_file = output_file
+        self.threshold = threshold
+        self.num_workers = num_workers
+
+        c_dir = os.getcwd()
+        self.stdout = os.path.join(c_dir, 'log.txt')
+        print(self.stdout)
+
+    def execute(self):
+        import subprocess
+        import os
+        os.chdir(self.program_path)
+        print(os.getcwd())
+
+        executable = ''
+        if platform.system() == 'Windows':
+            executable = 'ccount.exe '
+        elif platform.system() == 'Darwin':
+            executable = './ccount_mac '
+        elif platform.system() == 'Linux':
+            executable = './ccount '
+
+        program = ' -i ' + self.input_file + ' -o ' + self.output_file + ' -w ' + str(self.num_workers) + ' --threshold ' + str(self.threshold)
+
+        subprocess.call(executable + program, cwd=self.program_path, stderr=subprocess.STDOUT,
+                        stdout=open(self.stdout, 'w'), shell=True)
+
+        print('finished computing co-occurrence.')
 
