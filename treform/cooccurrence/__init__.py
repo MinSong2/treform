@@ -61,8 +61,8 @@ class CooccurrenceManager:
         sorted = []
         for tup in count:
             freq = count[tup]
-            left_word = self.getWord(count[0])
-            right_word = self.getWord(count[1])
+            left_word = self.getWord(tup[0])
+            right_word = self.getWord(tup[1])
             sorted.append(((left_word, right_word), freq))
         return sorted, words
 
