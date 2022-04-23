@@ -48,23 +48,40 @@ class CooccurrenceManager:
     def getWord(self, id):
         return self.w[id]
 
-    def calculateCooccurrence(self, list):
-        count = {}  # 동시출현 빈도가 저장될 dict
-        words = list(set(list))  # 단어별로 분리한 것을 set에 넣어 중복 제거하고, 다시 list로 변경
-        wids = [self.getIdOrAdd(w) for w in words]
-        for i, a in enumerate(wids):
-            for b in wids[i + 1:]:
-                if a == b: continue  # 같은 단어의 경우는 세지 않음
-                if a > b: a, b = b, a  # A, B와 B, A가 다르게 세어지는것을 막기 위해 항상 a < b로 순서 고정
-                count[a, b] = count.get((a, b), 0) + 1  # 실제로 센다
+        def calculateCooccurrence(self, documents):
+        all_words = []
+        for sent in documents:
+            sent_ = sent.split(' ')
+            for w_ in sent_:
+                all_words.append(w_)
 
+        words = set()
+        for sent in documents:
+            sent_ = sent.split(' ')
+            for w_ in sent_:
+                words.add(w_)
+        words = list(words)
+        wids = [self.getIdOrAdd(w) for w in words]
+        count = {}
+
+        for i, a in enumerate(all_words):
+            a_num = self.w.index(a)
+            for b in all_words[i + 1:]:
+                b_num = self.w.index(b)
+                if a_num == b_num: continue  # 같은 단어의 경우는 세지 않음
+                if a_num > b_num: a_num, b_num = b_num, a_num  # A, B와 B, A가 다르게 세어지는것을 막기 위해 항상 a < b로 순서 고정
+                count[a_num, b_num] = count.get((a_num, b_num), 0) + 1  # 실제로 센다
         sorted = []
-        for tup in count:
-            freq = count[tup]
-            left_word = self.getWord(tup[0])
-            right_word = self.getWord(tup[1])
-            sorted.append(((left_word, right_word), freq))
+        for node_pair,  freq in count.items() :
+            left_id, right_id = node_pair
+            left_word = self.w[left_id]
+            right_word = self.w[right_id]
+            node_pair_by_word = left_word + ' ' + right_word
+            elem = (node_pair_by_word, freq)
+            sorted.append(elem)
+
         return sorted, words
+        
 
     def computeCooccurence(self, list, target=''):
         com = defaultdict(lambda: defaultdict(int))
