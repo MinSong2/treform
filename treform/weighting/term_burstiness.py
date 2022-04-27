@@ -1,40 +1,31 @@
-import time
+import platform
+from copy import deepcopy
+
+from datetime import datetime, timedelta
+from dateutil import parser
+
 import pandas as pd
-
-# stats
+import matplotlib.font_manager as fm
 import numpy as np
-
-# Visualisation
 import matplotlib.pyplot as plt
 
-# monitoring
 import time
-
-# data cleaning
-import re
-
-# lemmatisation
 from collections import defaultdict
-from nltk.stem import WordNetLemmatizer
+
+from matplotlib.legend_handler import HandlerLine2D
 from sklearn.feature_extraction.text import CountVectorizer
-
-# stopwords
-from nltk.corpus import stopwords
-
-# Clustering
-from scipy.spatial.distance import squareform
-from scipy.cluster import hierarchy
 
 # Machine learning
 import sklearn
-from sklearn import datasets, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn import svm
 from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import tree
 from sklearn.metrics import roc_curve, auc
+
+import tomotopy as tm
+
+import pickle
 
 ngram_length = 3
 min_yearly_df = 5
@@ -56,134 +47,7 @@ plt.rcParams['xtick.labelsize'] = 11
 plt.rcParams['ytick.labelsize'] = 11
 plt.rc('font', family='sans-serif')
 
-year_range = list(range(1988,2018))
-
-alphabets= "([A-Za-z])"
-prefixes = "(Mr|St|Mrs|Ms|Dr)[.]"
-suffixes = "(Inc|Ltd|Jr|Sr|Co)"
-starters = "(Mr|Mrs|Ms|Dr|He\s|She\s|It\s|They\s|Their\s|Our\s|We\s|But\s|However\s|That\s|This\s|Wherever)"
-acronyms = "([A-Z][.][A-Z][.](?:[A-Z][.])?)"
-websites = "[.](com|net|org|io|gov)"
-htmltags = '<[^>]+>'
-htmlspecial = '&#?[xX]?[a-zA-Z0-9]{2,8};'
-
-start_delimiter = 'documentstart'
-sent_delimiter = 'sentenceboundary'
-end_delimiter = 'documentend'
-
-delimiters = [start_delimiter, sent_delimiter, end_delimiter]
-
-# Download the lemmatisesr
-wnl = WordNetLemmatizer()
-
-# Create a tokeniser
-count = CountVectorizer(strip_accents='ascii', min_df=1)
-tokeniser = count.build_analyzer()
-
-def normalise_acronymns(text):
-    '''
-    Remove the periods in acronyms.
-    Adapted from the method found at https://stackoverflow.com/a/40197005
-    '''
-    return re.sub(r'(?<!\w)([A-Z, a-z])\.', r'\1', text)
-
-def normalise_decimals(text):
-    '''
-    Remove the periods in decimal numbers and replace with POINT
-    '''
-    return re.sub(r'([0-9])\.([0-9])', r'\1POINT\2', text)
-
-
-def split_into_sentences(text):
-    '''
-    Sentence splitter adapted from https://stackoverflow.com/a/31505798
-    '''
-    text = text.replace("\n", " ")
-    text = re.sub(prefixes, "\\1<prd>", text)
-    text = re.sub(websites, "<prd>\\1", text)
-
-    # my addition
-    text = re.sub(htmltags, " ", text)
-    text = re.sub(htmlspecial, " ", text)
-
-    if "Ph.D" in text:
-        text = text.replace("Ph.D.", "PhD")
-
-    text = re.sub("\s" + alphabets + "[.] ", " \\1", text)
-    text = re.sub(acronyms + " " + starters, "\\1<stop> \\2", text)
-    text = re.sub(alphabets + "[.]" + alphabets + "[.]" + alphabets + "[.]", "\\1\\2\\3", text)
-    text = re.sub(alphabets + "[.]" + alphabets + "[.]", "\\1\\2", text)
-    text = re.sub(" " + suffixes + "[.] " + starters, " \\1 \\2", text)
-    text = re.sub(" " + suffixes + "[.]", " \\1", text)
-    text = re.sub(" " + alphabets + "[.]", " \\1", text)
-    if "”" in text:
-        text = text.replace(".”", "”.")
-    if "\"" in text:
-        text = text.replace(".\"", "\".")
-    if "!" in text:
-        text = text.replace("!\"", "\"!")
-    if "?" in text:
-        text = text.replace("?\"", "\"?")
-
-    text = text.replace(".", "<stop>")
-    text = text.replace("?", "<stop>")
-    text = text.replace("!", "<stop>")
-
-    sentences = text.split("<stop>")
-    sentences = [s.strip() for s in sentences]
-
-    non_empty = []
-    for s in sentences:
-        # we require that there be two alphanumeric characters in a row
-        if len(re.findall("[A-Za-z0-9][A-Za-z0-9]", s)) > 0:
-            non_empty.append(s)
-    return non_empty
-
-
-def pad_sentences(sentences):
-    '''
-    Takes a list of sentences and returns a string in which:
-        - The beginning of the abstract is indicated by DOCUMENTSTART
-        - The end is indicated by DOCUMENTEND
-        - Sentence boundaries are indicated by SENTENCEBOUNDARY
-
-    The number of delimiters used is dependent on the ngram length
-    '''
-    sent_string = (' ' + (sent_delimiter + ' ') * (ngram_length - 1)).join(sentences)
-
-    return (start_delimiter + ' ') * (ngram_length - 1) + sent_string + (' ' + end_delimiter) * (ngram_length - 1)
-
-
-def cleaning_pipeline(title, abstract):
-    '''
-    Takes a binary string and returns a list of cleaned sentences, stripped of punctuation and lemmatised
-    '''
-
-    title = normalise_decimals(normalise_acronymns(title.decode()))
-    abstract = normalise_decimals(normalise_acronymns(abstract.decode()))
-    sentences = [title] + split_into_sentences(abstract)
-
-    # strip out punctuation and make lowercase
-    clean_sentences = []
-    for s in sentences:
-        # Deal with special cases
-        s = re.sub(r'[-/]', ' ', s)
-
-        # Remove all other punctuation
-        s = re.sub(r'[^\w\s]', '', s)
-
-        clean_sentences.append(s.lower())
-
-    # pad sentences with delimiters
-    text = pad_sentences(clean_sentences)
-
-    # Lemmatise word by word
-    lemmas = []
-    for word in tokeniser(text):
-        lemmas.append(wnl.lemmatize(word))
-
-    return ' '.join(lemmas)
-
+year_range = list(range(1988,2020))
 
 def calc_macd(dataset):
     long_ma = dataset.ewm(span=long_ma_length).mean()
@@ -194,17 +58,14 @@ def calc_macd(dataset):
     hist = macd - signal
     return long_ma, short_ma, significance_ma, macd, signal, hist
 
-
 def calc_significance(stacked_vectors, significance_threshold, n):
     # Must have been above the significance threshold for two consecutive timesteps
     a = stacked_vectors > significance_threshold
     b = a.rolling(window=n).sum()
     return stacked_vectors[stacked_vectors.axes[1][np.where(b.max() >= n)[0]]]
 
-
 def calc_burstiness(hist, scaling_factor):
     return hist.iloc[long_ma_length - 1:] / scaling_factor
-
 
 def calc_scaling(significance_ma, method):
     if method == "max":
@@ -237,6 +98,8 @@ def feature_selection(dataset):
 
     scaling_factor = calc_scaling(significance_ma, "sqrt")
     burstiness_over_time = calc_burstiness(hist, scaling_factor)
+    print('burst over time ' + str(len(burstiness_over_time)))
+
     burstiness = max_burstiness(burstiness_over_time)
 
     X = long_ma.iloc[long_ma_length:].T
@@ -250,10 +113,22 @@ def feature_selection(dataset):
                       significance_ma.iloc[significance_ma_length:].min(),
                       scaling_factor
                       ], axis=1)
-    X = pd.concat([X, scaled_hist.T, scaled_signal.T, Xtra], axis=1)
 
-    X.columns = [str(i) for i in range(8)] + ["hist" + str(i) for i in range(8)] + ["signal" + str(i) for i in
-                                                                                    range(8)] + [
+    pd.options.display.max_columns = None
+    XY = pd.concat([X, scaled_hist.T, scaled_signal.T, Xtra], axis=1)
+
+    print(scaled_hist.T.info(10))
+    print('++++++++++++++++++')
+    print(scaled_signal.T.info(10))
+    print('++++++++++++++++++')
+    print(Xtra.info(10))
+    print('++++++++++++++++++')
+    print(X.info(10))
+    print('=======================')
+    print(XY.info(10))
+
+    XY.columns = [str(i) for i in range(2)] + ["hist" + str(i) for i in range(2)] + ["signal" + str(i) for i in
+                                                                                    range(2)] + [
                     "significance",
                     "prevalence",
                     "scaled std",
@@ -262,7 +137,7 @@ def feature_selection(dataset):
                     "scaling"
                 ]
 
-    return X
+    return XY
 
 def balanced_subsample(x,y,subsample_size=1.0):
     # from https://stackoverflow.com/a/23479973
@@ -299,212 +174,637 @@ def balanced_subsample(x,y,subsample_size=1.0):
     return xs,ys
 
 
-vocab = set()
-for year in range(1988, 2018):
-    df = pd.read_csv('../Data/clean_dblp/' + str(year) + '.csv')
-
-    # The same as above, applied year by year instead.
-    t0 = time.time()
-
-    vectorizer = CountVectorizer(strip_accents='ascii',
-                                 ngram_range=(1, ngram_length),
-                                 min_df=min_yearly_df)
-
-    vector = vectorizer.fit_transform(df.text)
-
-    # Save the new words
-    vocab = vocab.union(vectorizer.vocabulary_.keys())
-
-    print(year, len(vocab), time.time() - t0)
-
-vocabulary = {}
-i = 0
-for v in vocab:
-    # Remove delimiters
-    if start_delimiter in v:
-        pass
-    elif end_delimiter in v:
-        pass
-    elif sent_delimiter in v:
-        pass
-    else:
-        vocabulary[v] = i
-        i += 1
-
-print(len(vocabulary.keys()))
-
-vectors = []
-for year in range(1988, 2018):
-    df = pd.read_csv('../Data/clean_dblp/' + str(year) + '.csv')
-
-    # The same as above, applied year by year instead.
-    t0 = time.time()
-
-    vectorizer = CountVectorizer(strip_accents='ascii',
-                                 ngram_range=(1, ngram_length),
-                                 vocabulary=vocabulary)
-
-    vectors.append(vectorizer.fit_transform(df.text))
-
-    print(year, time.time() - t0)
-
-summed_vectors = []
-
-for y in range(len(vectors)):
-    vector = vectors[y]
-
-    # Set all elements that are greater than one to one -- we do not care if a word is used multiple times in
-    # the same document
-    vector[vector > 1] = 1
-
-    # Sum the vector along columns
-    summed = np.squeeze(np.asarray(np.sum(vector, axis=0)))
-
-    # Normalise by dividing by the number of documents in that year
-    normalised = summed / vector.shape[0]
-
-    # Save the summed vector
-    summed_vectors.append(normalised)
-
-# Stack vectors vertically, so that we have the full history of popularity/time for each term
-stacked_vectors = np.stack(summed_vectors, axis=1)
-
-print(stacked_vectors.shape)
-
-stacked_vectors = pd.DataFrame(stacked_vectors.transpose(), columns=list(vocabulary.keys()))
-
-import pickle
-
-stacked_vectors = pickle.load(open('../Data/methods_paper/stacked_vectors.p', "rb"))
-burstvectors = pickle.load(open('../Data/methods_paper_2/burstvectors_500.p', "rb"))
-
-normalisation = stacked_vectors.sum(axis=1)
-stacked_vectors = stacked_vectors.divide(normalisation, axis='index')*100
-
-stacked_vectors = calc_significance(stacked_vectors, significance_threshold, years_above_significance)
-print(stacked_vectors.shape)
-
-#Calculate burstiness
-long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(stacked_vectors)
-scaling_factor = calc_scaling(significance_ma, "sqrt")
-burstiness_over_time = calc_burstiness(hist, scaling_factor)
-burstiness = max_burstiness(burstiness_over_time)
-
-#Set a threshold such that the top 500 bursty terms are included
-print(np.sum(burstiness["max"]>0.002451))
-
-bursts = list(burstiness["max"].index[np.where(burstiness["max"]>burstiness_threshold_detection)[0]])
-print(bursts)
-
-#Cluster bursts based on co-occurence
-#We cluster our 500 bursts based on their co-occurence in abstracts
-
-# vectorise again, using these terms only
-vectors = []
-for year in range(1988, 2018):
-    df = pd.read_csv('../Data/clean_dblp/' + str(year) + '.csv')
-
-    # The same as above, applied year by year instead.
-    t0 = time.time()
-
-    vectorizer = CountVectorizer(strip_accents='ascii',
-                                 ngram_range=(1, ngram_length),
-                                 vocabulary=bursts)
-
-    vector = vectorizer.fit_transform(df.text)
-
-    # If any element is larger than one, set it to one
-    vector.data = np.where(vector.data > 0, 1, 0)
-
-    vectors.append(vector)
-
-    print(year, time.time() - t0)
-
-cooccurrence = []
-for v in vectors:
-    c = v.T * v
-    c.setdiag(0)
-    c = c.todense()
-    cooccurrence.append(c)
-
-all_cooccurrence = np.sum(cooccurrence, axis=0)
-
-# Translate co-occurence into a distance
-dists = 1 - all_cooccurrence / all_cooccurrence.max()
-
-# Remove the diagonal (squareform requires diagonals be zero)
-dists -= np.diag(np.diagonal(dists))
-
-# Put the distance matrix into the format required by hierachy.linkage
-flat_dists = squareform(dists)
-
-# Get the linkage matrix
-linkage_matrix = hierarchy.linkage(flat_dists, "ward")
-
-assignments = hierarchy.fcluster(linkage_matrix, 80, 'maxclust')
-print(len(bursts))
-print(len(set(assignments)))
-
-clusters = defaultdict(list)
-
-for term, assign in zip(bursts, assignments):
-    clusters[assign].append(term)
-
-for key in sorted(clusters.keys()):
-    print(key, ':', ', '.join(clusters[key]))
-
-#Graph selected bursty terms over time
-#We manually remove clusters that contain copyright declarations, etc. Then we filter down to 52, choosing a representative sample over time. We choose one or two terms to represent each cluster.
-df = pd.read_csv('clusters3/clusters.csv')
-clusters = [d.split(', ') for d in df.terms]
-
-
-def get_prevalence(cluster):
+def get_prevalence(cluster, bursts, burstvectors, unique_time_stamp):
     indices = []
     for term in cluster:
-        indices.append(bursts.index(term))
+        if term in bursts:
+            indices.append(bursts.index(term))
 
     prevalence = []
-    for year in range(30):
+    for year in unique_time_stamp:
         prevalence.append(
             100 * np.sum(np.sum(burstvectors[year][:, indices], axis=1) > 0) / burstvectors[year].shape[0])
 
     return prevalence
 
+def compute_term_burstiness(dataset):
+    # Build a vocabulary
+    # We have to build a vocabulary before we vectorise the data. This is because we want to set limits on the size of the vocabulary.
 
-yplots = 13
-xplots = 4
-fig, axs = plt.subplots(yplots, xplots)
-plt.subplots_adjust(right=1, hspace=0.9, wspace=0.3)
-plt.suptitle('Prevalence of selected bursty clusters over time', fontsize=14)
-fig.subplots_adjust(top=0.95)
-fig.set_figheight(16)
-fig.set_figwidth(12)
-x = np.arange(0, 30)
+    vocab = set()
 
-prevalences = []
-for i, cluster in enumerate(clusters):
-    prevalence = get_prevalence(cluster)
-    prevalences.append(prevalence)
-    title = df.name[i]
-    axs[int(np.floor((i / xplots) % yplots)), i % xplots].plot(x, prevalence, color='k', ls='-', label=title)
-    axs[int(np.floor((i / xplots) % yplots)), i % xplots].grid()
-    ymax = np.ceil(max(prevalence) * 2) / 2
-    if ymax == 0.5 and max(prevalence) < 0.25:
-        ymax = 0.25
-    elif ymax == 2.5:
-        ymax = 3
-    axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_ylim(0, ymax)
-    axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_xlim(0, 30)
-    axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_title(title, fontsize=12)
+    df = pd.read_csv(dataset)
 
-    if i % yplots != yplots - 1:
-        axs[i % yplots, int(np.floor((i / yplots) % xplots))].set_xticklabels([])
+    grouped_df = df.groupby(df.columns[0])
+
+    for key, item in grouped_df:
+        a_group = grouped_df.get_group(key)
+
+        print(a_group.head(10))
+        # The same as above, applied year by year instead.
+        t0 = time.time()
+
+        vectorizer = CountVectorizer(min_df=min_yearly_df)
+        print(a_group.iloc[:, 4].head(10))
+
+        vector = vectorizer.fit_transform(a_group.iloc[:, 4])
+
+        # Save the new words
+        vocab = vocab.union(vectorizer.vocabulary_.keys())
+        time_stamp = a_group.iloc[:, 0].tolist()[0]
+        print(time_stamp, len(vocab), time.time() - t0)
+
+    vocabulary = {}
+    i = 0
+    for v in vocab:
+        vocabulary[v] = i
+        i += 1
+
+    print(len(vocabulary.keys()))
+
+    # Go year by year and vectorise based on our vocabulary
+    # We read in the cleaned data and vectorise it according to our vocabulary.
+    vectors = []
+    grouped_df = df.groupby(df.columns[0])
+
+    for key, item in grouped_df:
+        a_group = grouped_df.get_group(key)
+
+        # The same as above, applied year by year instead.
+        t0 = time.time()
+
+        vectorizer = CountVectorizer(vocabulary=vocabulary)
+
+        vectors.append(vectorizer.fit_transform(a_group.iloc[:, 4]))
+        time_stamp = a_group.iloc[:, 0].tolist()[0]
+        print(time_stamp, time.time() - t0)
+
+    # Summing the vectors
+    # We sum the vectors along columns, so that we have the popularity of each term in each year.
+
+    summed_vectors = []
+    for y in range(len(vectors)):
+        vector = vectors[y]
+
+        # Set all elements that are greater than one to one -- we do not care if a word is used multiple times in
+        # the same document
+        vector[vector > 1] = 1
+
+        # Sum the vector along columns
+        summed = np.squeeze(np.asarray(np.sum(vector, axis=0)))
+
+        # Normalise by dividing by the number of documents in that year
+        normalised = summed / vector.shape[0]
+
+        # Save the summed vector
+        summed_vectors.append(normalised)
+
+    # Stack vectors vertically, so that we have the full history of popularity/time for each term
+    stacked_vectors = np.stack(summed_vectors, axis=1)
+
+    print(stacked_vectors.shape)
+
+    stacked_vectors = pd.DataFrame(stacked_vectors.transpose(), columns=list(vocabulary.keys()))
+
+    normalisation = stacked_vectors.sum(axis=1)
+    stacked_vectors = stacked_vectors.divide(normalisation, axis='index') * 100
+
+    stacked_vectors = calc_significance(stacked_vectors, significance_threshold, years_above_significance)
+    print(stacked_vectors.shape)
+
+    # Calculate burstiness
+    long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(stacked_vectors)
+    scaling_factor = calc_scaling(significance_ma, "sqrt")
+    burstiness_over_time = calc_burstiness(hist, scaling_factor)
+    burstiness = max_burstiness(burstiness_over_time)
+
+    # Set a threshold such that the top 500 bursty terms are included
+    print(np.sum(burstiness["max"] > 0.002451))
+
+    bursts = list(burstiness["max"].index[np.where(burstiness["max"] > burstiness_threshold_detection)[0]])
+    #print(bursts)
+
+    # Cluster bursts based on co-occurence
+    # vectorise again, using these terms only
+    burstvectors = {}
+    grouped_df = df.groupby(df.columns[0])
+
+    corpus = tm.utils.Corpus()
+
+    unique_time_stamp = []
+    for key, item in grouped_df:
+        a_group = grouped_df.get_group(key)
+        # The same as above, applied year by year instead.
+        t0 = time.time()
+
+        vectorizer = CountVectorizer(vocabulary=bursts)
+        vector = vectorizer.fit_transform(a_group.iloc[:, 4])
+
+        for i, _doc in enumerate(a_group.iloc[:, 4].tolist()):
+            corpus.add_doc(_doc.strip().split())
+            if i % 10 == 0:
+                print('Document #{} has been loaded'.format(i))
+
+        # If any element is larger than one, set it to one
+        vector.data = np.where(vector.data > 0, 1, 0)
+        time_stamp = a_group.iloc[:, 0].tolist()[0]
+        unique_time_stamp.append(time_stamp)
+        burstvectors[time_stamp] = vector
+
+        print(time_stamp, time.time() - t0)
+
+    with open('../models/unique_time_stamp.pickle', 'wb') as handle:
+        pickle.dump(unique_time_stamp, handle)
+
+    clusters = defaultdict(list)
+
+    model = tm.LDAModel(k=30, min_cf=10, min_df=5, rm_top=50, corpus=corpus)
+    model.optim_interval = 20
+    model.burn_in = 200
+    model.train(0)
+
+    # Let's train the model
+    for i in range(0, 1500, 20):
+        print('Iteration: {:04} LL per word: {:.4}'.format(i, model.ll_per_word))
+        model.train(20)
+    print('Iteration: {:04} LL per word: {:.4}'.format(1000, model.ll_per_word))
+
+    # extract candidates for auto topic labeling
+    extractor = tm.label.PMIExtractor(min_cf=10, min_df=10, max_len=5, max_cand=10000, normalized=True)
+    cands = extractor.extract(model)
+    labeler = tm.label.FoRelevance(model, cands, min_df=5, smoothing=1e-2, mu=0.25)
+
+    cluster_label = {}
+    for k in range(model.k):
+        print('Topic #{}'.format(k))
+        m = 0
+        for label, score in labeler.get_topic_labels(k, top_n=1):
+            if m > 0:
+                continue
+
+            print("Labels:", label)
+            cluster_label[k] = label
+            m += 1
+
+        for word, prob in model.get_topic_words(k, top_n=20):
+            print('\t', word, prob, sep='\t')
+            clusters[k].append(word)
+
+    for key in sorted(clusters.keys()):
+        print(key, ':', ', '.join(clusters[key]))
+
+    font_path = ''
+    if platform.system() is 'Windows':
+         # Window의 경우 폰트 경로
+        font_path = 'C:/Windows/Fonts/malgun.ttf'
+    elif platform.system() is 'Darwin':
+        # for Mac
+        font_path='/Library/Fonts/AppleGothic.ttf'
+
+    font_name = fm.FontProperties(fname=font_path).get_name()
+    plt.rc('font', family=font_name)
+    plt.rc('axes', unicode_minus=False)
+
+    total = model.k
+    y_val = int(np.ceil(total/4))
+
+    # Graph selected bursty terms over time
+    #yplots = 13
+    #xplots = 4
+    yplots = y_val
+    xplots = 4
+    fig, axs = plt.subplots(yplots, xplots)
+    plt.subplots_adjust(right=1, hspace=0.9, wspace=0.3)
+    plt.suptitle('Prevalence of selected bursty clusters over time', fontsize=14)
+    fig.subplots_adjust(top=0.95)
+    fig.set_figheight(16)
+    fig.set_figwidth(12)
+
+    print(bursts[0])
+    print(burstvectors[0])
+
+    prevalences = []
+    for i, cluster in enumerate(clusters):
+        prevalence = get_prevalence(clusters[cluster], bursts, burstvectors, unique_time_stamp)
+
+        x = range(0,len(prevalence))
+
+        prevalences.append(prevalence)
+        title = cluster_label[cluster]
+        axs[int(np.floor((i / xplots) % yplots)), i % xplots].plot(x, prevalence, color='k', ls='-', label=title)
+        axs[int(np.floor((i / xplots) % yplots)), i % xplots].grid()
+        ymax = np.ceil(max(prevalence) * 2) / 2
+        if ymax == 0.5 and max(prevalence) < 0.25:
+            ymax = 0.25
+        elif ymax == 2.5:
+            ymax = 3
+        axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_ylim(0, ymax)
+        axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_xlim(0, len(prevalence))
+        axs[int(np.floor((i / xplots) % yplots)), i % xplots].set_title(title, fontsize=12)
+
+        if i % yplots != yplots - 1:
+            axs[i % yplots, int(np.floor((i / yplots) % xplots))].set_xticklabels([])
+        else:
+            axs[i % yplots, int(np.floor((i / yplots) % xplots))].set_xticklabels([1988, 1998, 2008, 2018])
+
+    axs[6, 0].set_ylabel('Percentage of documents containing term (%)', fontsize=12)
+
+    #plt.show()
+    plt.savefig('burst_example.png')
+    plt.close(fig)
+
+    with open('../models/burstiness_stacked_vec.pickle', 'wb') as handle:
+        pickle.dump(stacked_vectors, handle)
+
+#Build the development set
+def build_development_set(stacked_vectors, unique_time_stamp, cutoff):
+    reversed_stamp = deepcopy(unique_time_stamp)
+    reversed_stamp.sort(reverse=True)
+
+    print(reversed_stamp)
+    recent = reversed_stamp[:10]
+    print('--------------------------')
+    print(recent)
+
+    development_data = {}
+    for _time_period in range(recent[len(recent)-1], recent[0]):
+        _time_period_idx = unique_time_stamp.index(_time_period)
+
+        # Use our three-year method to calc significance
+        valid_vectors = calc_significance(stacked_vectors[:_time_period + 1], significance_threshold, 3)
+
+        # Recalculate the macd things based on this more limited dataset
+        long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(valid_vectors)
+
+        #needs to be flexible for other types of timestamp - days, hours, minutes, etc
+        # Calculate scaling factor
+        scaling_factor = calc_scaling(significance_ma.iloc[max(long_ma_length, _time_period_idx - 13):_time_period_idx + 1], "sqrt")
+
+        # Calculate the burstiness
+        burstiness_over_time = calc_burstiness(hist, scaling_factor)
+        burstiness = max_burstiness(burstiness_over_time)
+
+        # Choose terms that are above both thresholds (burstiness, and also most recent year was significant)
+        burst_idx = np.where((burstiness["max"] > 0.0012) & (significance_ma.iloc[_time_period_idx] > significance_threshold))[0]
+
+        # Find the actual names of these terms
+        bursts = valid_vectors.keys()[burst_idx]
+
+        #needs to revist this logic -- minus 19! : update - 50 days?
+        # Create a new, much smaller dataset
+
+        dataset = stacked_vectors[bursts].iloc[_time_period_idx - 13:_time_period_idx + 1]
+
+        # needs to set the threshold not just like 2015
+        # Get the scaled y values
+        if _time_period < cutoff:
+            y = stacked_vectors[bursts].iloc[_time_period_idx + testing_period]
+
+        # Select features and store the data
+        development_data[_time_period] = {}
+        development_data[_time_period]["X"] = feature_selection(dataset)
+        if _time_period < cutoff:
+            development_data[_time_period]["y"] = y - development_data[_time_period]["X"]["significance"]
+        print(_time_period, len(bursts))
+
+    print(len(development_data))
+    return development_data
+
+#Choosing a max depth for the random forest
+def choose_max_depth(development_data, unique_time_stamp, cutoff):
+    reversed_stamp = deepcopy(unique_time_stamp)
+    reversed_stamp.sort(reverse=True)
+
+    #
+    # recent[len(recent)-3] is cutoff value
+    #print(development_data)
+    recent = reversed_stamp[:10]
+    print(recent)
+
+    X_array = []
+    for year in range(recent[len(recent) - 3], cutoff):
+        if development_data[year] is not None:
+            X_array.append(development_data[year]["X"])
+            print("FOUND!!!!!!!!!!!!!!!!!!!")
+
+    if len(X_array) > 0:
+        X = np.array(pd.concat(X_array))
+
+
+    y_array = []
+    for year in range(recent[len(recent) - 3], cutoff):
+        if development_data[year] is not None:
+            y_array.append(development_data[year]["y"])
+            print("FOUND!!!!!!!!!!!!!!!!!!!")
+
+    if len(y_array) > 0:
+        y = np.array(pd.concat(y_array))
     else:
-        axs[i % yplots, int(np.floor((i / yplots) % xplots))].set_xticklabels([1988, 1998, 2008, 2018])
+        return
 
-axs[6, 0].set_ylabel('Percentage of documents containing term (%)', fontsize=12)
+    #X = np.array(pd.concat([development_data[year]["X"] for year in range(recent[len(recent)-3], cutoff)]))
+    #y = np.array(pd.concat([development_data[year]["y"] for year in range(recent[len(recent)-3], cutoff)]))
+    y_thresh = np.zeros_like(y)
+    y_thresh[y > 0] = 1
 
+    # Balance the sample
+    X, y_thresh = balanced_subsample(X, y_thresh, subsample_size=1.0)
+    x_train, x_test, y_train, y_test = train_test_split(X, y_thresh, test_size=0.33, random_state=1)
 
+    max_depths = np.linspace(1, 32, 32, endpoint=True)
+    train_results = []
+    test_results = []
+    for max_depth in max_depths:
+        rf = RandomForestClassifier(n_estimators=100, max_depth=max_depth)
+        rf.fit(x_train, y_train)
+        train_pred = rf.predict(x_train)
+        false_positive_rate, true_positive_rate, thresholds = roc_curve(y_train, train_pred)
+        roc_auc = auc(false_positive_rate, true_positive_rate)
+        train_results.append(roc_auc)
+        y_pred = rf.predict(x_test)
+        false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_pred)
+        roc_auc = auc(false_positive_rate, true_positive_rate)
+        test_results.append(roc_auc)
 
+    line1, = plt.plot(max_depths, train_results, 'b', label="Train AUC")
+    line2, = plt.plot(max_depths, test_results, 'r', label="Test AUC")
+    plt.legend(handler_map={line1: HandlerLine2D(numpoints=2)})
+    plt.ylabel('AUC score')
+    plt.xlabel('Tree depth')
+    plt.title('Effect of changing the maximum depth of the random forest on classifier accuracy')
+    plt.show()
 
+#Choosing the number of estimators
+def choose_estimators(development_data, unique_time_stamp):
+    reversed_stamp = deepcopy(unique_time_stamp)
+    reversed_stamp.sort(reverse=True)
+    #
+    # recent[len(recent)-3] is cutoff value
+    #
+    print(development_data)
+    recent = reversed_stamp[:10]
+    X = np.array(pd.concat([development_data[year]["X"] for year in range(recent[len(recent)-3], recent[0])]))
+    y = np.array(pd.concat([development_data[year]["y"] for year in range(recent[len(recent)-3],recent[0])]))
+
+    #X = np.array(pd.concat([development_data[year]["X"] for year in range(2008, 2015)]))
+    #y = np.array(pd.concat([development_data[year]["y"] for year in range(2008, 2015)]))
+    y_thresh = np.zeros_like(y)
+    y_thresh[y > 0] = 1
+
+    # Balance the sample
+    X, y_thresh = balanced_subsample(X, y_thresh, subsample_size=1.0)
+    x_train, x_test, y_train, y_test = train_test_split(X, y_thresh, test_size=0.33, random_state=3)
+
+    n_estimators = [1, 2, 4, 8, 16, 32, 64, 100, 150, 200, 300, 500, 800]
+    train_results = []
+    test_results = []
+    for estimator in n_estimators:
+        rf = RandomForestClassifier(n_estimators=estimator, max_depth=13, n_jobs=-1)
+        rf.fit(x_train, y_train)
+        train_pred = rf.predict(x_train)
+        false_positive_rate, true_positive_rate, thresholds = roc_curve(y_train, train_pred)
+        roc_auc = auc(false_positive_rate, true_positive_rate)
+        train_results.append(roc_auc)
+        y_pred = rf.predict(x_test)
+        false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_pred)
+        roc_auc = auc(false_positive_rate, true_positive_rate)
+        test_results.append(roc_auc)
+    from matplotlib.legend_handler import HandlerLine2D
+    line1, = plt.plot(n_estimators, train_results, 'b', label='Train AUC')
+    line2, = plt.plot(n_estimators, test_results, 'r', label='Test AUC')
+    plt.legend(handler_map={line1: HandlerLine2D(numpoints=2)})
+    plt.ylabel('AUC score')
+    plt.xlabel('n_estimators')
+    plt.title('Effect of changing the number of estimators of the random forest on classifier accuracy')
+    plt.show()
+
+#The effect of changing the burstiness threshold and prediction interval on the random forest classifier
+def change_bustiness_threshold(stacked_vectors, development_data):
+    scores = {}
+    for threshold in np.arange(0.0006, 0.0017, 0.0002):
+        scores[threshold] = {}
+        for year in range(2008, 2013):
+            year_idx = year_range.index(year)
+
+            # Use our three-year method to calc significance
+            valid_vectors = calc_significance(stacked_vectors[:year_idx + 1], significance_threshold, 3)
+
+            # Recalculate the macd things based on this more limited dataset
+            long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(valid_vectors)
+
+            # Calculate scaling factor
+            scaling_factor = calc_scaling(significance_ma.iloc[max(long_ma_length, year_idx - 19):year_idx + 1], "sqrt")
+
+            # Calculate the burstiness
+            burstiness_over_time = calc_burstiness(hist, scaling_factor)
+            burstiness = max_burstiness(burstiness_over_time)
+
+            # Choose terms that are above both thresholds (burstiness, and also most recent year was significant)
+            burst_idx = \
+            np.where((burstiness["max"] > threshold) & (significance_ma.iloc[year_idx] > significance_threshold))[0]
+
+            # Find the actual names of these terms
+            bursts = valid_vectors.keys()[burst_idx]
+
+            # Create a new, much smaller dataset
+            dataset = stacked_vectors[bursts].iloc[year_idx - 19:year_idx + 1]
+
+            # Select features and store the data
+            development_data[year] = {}
+            development_data[year]["X"] = feature_selection(dataset)
+
+            development_data[year]["y"] = {}
+
+            for interval in range(1, 6):
+                # Get the scaled y values
+                y = stacked_vectors[bursts].iloc[year_idx + interval]
+                development_data[year]["y"][interval] = y - development_data[year]["X"]['significance']
+
+        X = np.array(pd.concat([development_data[year]["X"] for year in range(2008, 2013)]))
+
+        for interval in range(1, 6):
+            scores[threshold][interval] = {}
+            scores[threshold][interval]['scores'] = []
+            y = np.array(pd.concat([development_data[year]["y"][interval] for year in range(2008, 2013)]))
+
+            # Binarise y data
+            y_thresh = np.zeros_like(y)
+            y_thresh[y > 0] = 1
+
+            # Balance the sample
+            X_bal, y_thresh = balanced_subsample(X, y_thresh, subsample_size=1.0)
+
+            scores[threshold][interval]['size'] = len(y_thresh)
+            kf = KFold(n_splits=10, shuffle=True)
+            for train, test in kf.split(X_bal):
+                clf = RandomForestClassifier(n_estimators=150, max_depth=13)
+
+                clf.fit(X_bal[train], y_thresh[train])
+                preds = clf.predict(X_bal[test])
+
+                new_scores = [
+                    sklearn.metrics.accuracy_score(y_thresh[test], preds),
+                    sklearn.metrics.f1_score(y_thresh[test], preds),
+                    np.sum(y_thresh[test] == 0) / len(y_thresh[test])
+                ]
+                scores[threshold][interval]['scores'].append(new_scores)
+
+            print(threshold, interval, len(y_thresh),
+                  np.round(np.mean(np.array(scores[threshold][interval]['scores'])[:, 0]), 3)
+                  )
+
+#Format for table
+def format_table(scores):
+    for threshold in np.arange(0.0006, 0.0017, 0.0002):
+        print(threshold, '&',
+              scores[threshold][3]['size'], '&',
+              np.round(np.mean(np.array(scores[threshold][3]['scores'])[:, 0]), 2),
+              '$\pm$',
+              np.round(np.std(np.array(scores[threshold][3]['scores'])[:, 0]), 2), '&',
+              np.round(np.mean(np.array(scores[threshold][3]['scores'])[:, 1]), 2),
+              '$\pm$',
+              np.round(np.std(np.array(scores[threshold][3]['scores'])[:, 1]), 2),
+              '\\\\'
+              )
+    plt.rc('font', family='sans-serif')
+    plt.rc('xtick', labelsize='medium')
+    plt.rc('ytick', labelsize='medium')
+    line_styles = ['-', '--', ':']
+    col = 0.5
+    fig = plt.figure(figsize=(6, 3.7))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_title('Choosing a prediction interval, I', fontsize=13)
+    ax.grid()
+    ax.set_ylim(0.65, 0.9)
+    # ax.set_xlim(1,5)
+
+    ax.set_ylabel('F1 score', fontsize=12)
+    ax.set_xlabel('Number of years in future', fontsize=12)
+
+    plt.xticks(range(1, 6), range(1, 6))
+
+    thresholds = ["0.0006", "0.0008", "0.0010", "0.0012", "0.0014", "0.0016"]
+    for i, threshold in enumerate(np.arange(0.0006, 0.0017, 0.0002)):
+        y = []
+        yerr = []
+        for interval in range(1, 6):
+            s = np.array(scores[threshold][interval]['scores'])
+            y.append(np.mean(s[:, 1]))
+            yerr.append(np.std(s[:, 1]))
+
+        ax.errorbar(range(1, 6), y, yerr=yerr, color=str(col), label=thresholds[i], fmt='--o')
+
+        col -= 0.1
+
+    # ax.legend(ncol=3, mode="expand")
+    ax.legend(fontsize=11)
+
+#Train a single classifier on all the data from 1988-2014
+def train_classifier(stacked_vectors, unique_time_stamp, cutoff):
+    threshold = 0.0012
+    interval = 3
+
+    reversed_stamp = deepcopy(unique_time_stamp)
+    reversed_stamp.sort(reverse=True)
+
+    print(reversed_stamp)
+    recent = reversed_stamp[:10]
+    print('--------------------------')
+    print(recent)
+
+    development_data = {}
+    for _time_period in range(recent[len(recent) - 1], recent[0]):
+        _time_period_idx = unique_time_stamp.index(_time_period)
+        # Use our three-year method to calc significance
+        valid_vectors = calc_significance(stacked_vectors[:_time_period_idx + 1], significance_threshold, 3)
+
+        # Recalculate the macd things based on this more limited dataset
+        long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(valid_vectors)
+
+        # Calculate scaling factor
+        scaling_factor = calc_scaling(significance_ma.iloc[max(long_ma_length, _time_period_idx - 13):_time_period_idx + 1], "sqrt")
+
+        # Calculate the burstiness
+        burstiness_over_time = calc_burstiness(hist, scaling_factor)
+        burstiness = max_burstiness(burstiness_over_time)
+
+        # Choose terms that are above both thresholds (burstiness, and also most recent year was significant)
+        burst_idx = \
+        np.where((burstiness["max"] > threshold) & (significance_ma.iloc[_time_period_idx] > significance_threshold))[0]
+
+        # Find the actual names of these terms
+        bursts = valid_vectors.keys()[burst_idx]
+
+        # Create a new, much smaller dataset
+        dataset = stacked_vectors[bursts].iloc[_time_period_idx - 13:_time_period_idx + 1]
+
+        # Select features and store the data
+        development_data[_time_period] = {}
+        development_data[_time_period]["X"] = feature_selection(dataset)
+        if _time_period < cutoff:
+            y = stacked_vectors[bursts].iloc[_time_period + interval]
+            development_data[_time_period]["y"] = y - development_data[_time_period]["X"]['significance']
+
+    recent = reversed_stamp[:10]
+    print(recent)
+
+    X_array = []
+    for year in range(recent[len(recent) - 3], cutoff):
+        if development_data[year] is not None:
+            X_array.append(development_data[year]["X"])
+            print("FOUND!!!!!!!!!!!!!!!!!!!")
+
+    if len(X_array) > 0:
+        X = np.array(pd.concat(X_array))
+
+    y_array = []
+    for year in range(recent[len(recent) - 3], cutoff):
+        if development_data[year] is not None:
+            y_array.append(development_data[year]["y"])
+            print("FOUND!!!!!!!!!!!!!!!!!!!")
+
+    if len(y_array) > 0:
+        y = np.array(pd.concat(y_array))
+    else:
+        return
+
+    #X = np.array(pd.concat([development_data[year]["X"] for year in range(2008,2015)]))
+    #y = np.array(pd.concat([development_data[year]["y"] for year in range(2008,2015)]))
+
+    # Binarise y data
+    y_thresh = np.zeros_like(y)
+    y_thresh[y>0] = 1
+
+    # Balance the sample
+    X_bal, y_thresh = balanced_subsample(X, y_thresh,subsample_size=1.0)
+
+    clf = RandomForestClassifier(n_estimators=150, max_depth=13)
+    clf.fit(X_bal, y_thresh)
+
+    return clf
+
+def predict(burstiness, significance_ma, valid_vectors, stacked_vectors, year_idx, clf):
+    # Choose terms that are above both thresholds
+    burst_idx = np.where(
+        (burstiness["max"] > burstiness_threshold_prediction) & (significance_ma.iloc[29] > significance_threshold))[0]
+
+    # Find the actual names of these terms
+    bursts = list(valid_vectors.keys()[burst_idx])
+
+    # Create a new, much smaller dataset
+    dataset = stacked_vectors[bursts].iloc[year_idx - 19:year_idx + 1]
+
+    X_test = np.array(feature_selection(dataset))
+
+    preds = clf.predict(X_test)
+    rise = []
+    fall = []
+    for i, p in enumerate(preds):
+        if p > 0.5:
+            rise.append(bursts[i])
+        else:
+            fall.append(bursts[i])
+
+    print(', '.join(rise))
+    print()
+    print(', '.join(fall))
