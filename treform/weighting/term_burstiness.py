@@ -30,12 +30,13 @@ import pickle
 ngram_length = 3
 min_yearly_df = 5
 
-long_ma_length = 12
-short_ma_length = 6
-signal_line_ma = 3
-significance_ma_length = 3
+# 하이퍼 파라미터 지정.
+long_ma_length = 4
+short_ma_length = 2
+signal_line_ma = 2
+significance_ma_length = 2
 
-significance_threshold = 0.0002
+significance_threshold = 0.000001
 years_above_significance = 3
 testing_period = 3
 
@@ -60,7 +61,7 @@ def calc_macd(dataset):
 
 def calc_significance(stacked_vectors, significance_threshold, n):
     # Must have been above the significance threshold for two consecutive timesteps
-    a = stacked_vectors > significance_threshold
+    a = stacked_vectors>significance_threshold
     b = a.rolling(window=n).sum()
     return stacked_vectors[stacked_vectors.axes[1][np.where(b.max() >= n)[0]]]
 
@@ -282,7 +283,7 @@ def compute_term_burstiness(dataset):
     print(np.sum(burstiness["max"] > 0.002451))
 
     bursts = list(burstiness["max"].index[np.where(burstiness["max"] > burstiness_threshold_detection)[0]])
-    #print(bursts)
+    print(bursts)
 
     # Cluster bursts based on co-occurence
     # vectorise again, using these terms only
@@ -355,22 +356,22 @@ def compute_term_burstiness(dataset):
 
     font_path = ''
     if platform.system() is 'Windows':
-         # Window의 경우 폰트 경로
+        # Window의 경우 폰트 경로
         font_path = 'C:/Windows/Fonts/malgun.ttf'
     elif platform.system() is 'Darwin':
         # for Mac
-        font_path='/Library/Fonts/AppleGothic.ttf'
+        font_path = '/Library/Fonts/AppleGothic.ttf'
 
     font_name = fm.FontProperties(fname=font_path).get_name()
     plt.rc('font', family=font_name)
     plt.rc('axes', unicode_minus=False)
 
     total = model.k
-    y_val = int(np.ceil(total/4))
+    y_val = int(np.ceil(total / 4))
 
     # Graph selected bursty terms over time
-    #yplots = 13
-    #xplots = 4
+    # yplots = 13
+    # xplots = 4
     yplots = y_val
     xplots = 4
     fig, axs = plt.subplots(yplots, xplots)
@@ -387,7 +388,7 @@ def compute_term_burstiness(dataset):
     for i, cluster in enumerate(clusters):
         prevalence = get_prevalence(clusters[cluster], bursts, burstvectors, unique_time_stamp)
 
-        x = range(0,len(prevalence))
+        x = range(0, len(prevalence))
 
         prevalences.append(prevalence)
         title = cluster_label[cluster]
@@ -409,7 +410,7 @@ def compute_term_burstiness(dataset):
 
     axs[6, 0].set_ylabel('Percentage of documents containing term (%)', fontsize=12)
 
-    #plt.show()
+    # plt.show()
     plt.savefig('burst_example.png')
     plt.close(fig)
 
@@ -808,3 +809,99 @@ def predict(burstiness, significance_ma, valid_vectors, stacked_vectors, year_id
     print(', '.join(rise))
     print()
     print(', '.join(fall))
+
+
+def compute_pure_term_burstiness(dataset):
+    # Build a vocabulary
+    # We have to build a vocabulary before we vectorise the data. This is because we want to set limits on the size of the vocabulary.
+
+    vocab = set()
+
+    df = pd.read_csv(dataset)
+
+    grouped_df = df.groupby(df.columns[0])
+
+    for key, item in grouped_df:
+        a_group = grouped_df.get_group(key)
+
+        print(a_group.head(10))
+        # The same as above, applied year by year instead.
+        t0 = time.time()
+
+        vectorizer = CountVectorizer(min_df=min_yearly_df)
+        print(a_group.iloc[:, 4].head(10))
+
+        vector = vectorizer.fit_transform(a_group.iloc[:, 4])
+
+        # Save the new words
+        vocab = vocab.union(vectorizer.vocabulary_.keys())
+        time_stamp = a_group.iloc[:, 0].tolist()[0]
+        print(time_stamp, len(vocab), time.time() - t0)
+
+    vocabulary = {}
+    i = 0
+    for v in vocab:
+        vocabulary[v] = i
+        i += 1
+
+    print(len(vocabulary.keys()))
+
+    vocab = pd.DataFrame(vocabulary.items())[[0]]
+    vocab.to_csv('../sample_data/vocab.csv')
+    # Go year by year and vectorise based on our vocabulary
+    # We read in the cleaned data and vectorise it according to our vocabulary.
+    vectors = []
+    grouped_df = df.groupby(df.columns[0])
+
+    for key, item in grouped_df:
+        a_group = grouped_df.get_group(key)
+
+        # The same as above, applied year by year instead.
+        t0 = time.time()
+
+        vectorizer = CountVectorizer(vocabulary=vocabulary)
+
+        vectors.append(vectorizer.fit_transform(a_group.iloc[:, 4]))
+        time_stamp = a_group.iloc[:, 0].tolist()[0]
+        print(time_stamp, time.time() - t0)
+
+    # Summing the vectors
+    # We sum the vectors along columns, so that we have the popularity of each term in each year.
+    summed_vectors = []
+    for y in range(len(vectors)):
+        vector = vectors[y]
+
+        # Set all elements that are greater than one to one -- we do not care if a word is used multiple times in
+        # the same document
+        vector[vector > 1] = 1
+
+        # Sum the vector along columns
+        summed = np.squeeze(np.asarray(np.sum(vector, axis=0)))
+
+        # Normalise by dividing by the number of documents in that year
+        normalised = summed / vector.shape[0]
+
+        # Save the summed vector
+        summed_vectors.append(normalised)
+
+    # Stack vectors vertically, so that we have the full history of popularity/time for each term
+    stacked_vectors = np.stack(summed_vectors, axis=1)
+
+    print(stacked_vectors.shape)
+
+    stacked_vectors = pd.DataFrame(stacked_vectors.transpose(), columns=list(vocabulary.keys()))
+
+    print(stacked_vectors.shape)
+
+    stacked_vectors.to_csv('../sample_data/stacked_vectors.csv')
+
+    #stacked_vectors.index = list(range(20170101, 20171024))
+    print(stacked_vectors.index)
+
+    long_ma, short_ma, significance_ma, macd, signal, hist = calc_macd(stacked_vectors)
+    scaling_factor = calc_scaling(significance_ma, "mean")
+    #print(hist)
+    burstiness_over_time = calc_burstiness(hist, scaling_factor)
+    #burstiness = max_burstiness(burstiness_over_time)
+
+    print(burstiness_over_time)
