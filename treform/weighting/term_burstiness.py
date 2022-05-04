@@ -26,6 +26,7 @@ from sklearn.metrics import roc_curve, auc
 import tomotopy as tm
 
 import pickle
+import os
 
 ngram_length = 3
 min_yearly_df = 5
@@ -811,13 +812,14 @@ def predict(burstiness, significance_ma, valid_vectors, stacked_vectors, year_id
     print(', '.join(fall))
 
 
-def compute_pure_term_burstiness(dataset):
+def compute_pure_term_burstiness(documents, label_list):
     # Build a vocabulary
     # We have to build a vocabulary before we vectorise the data. This is because we want to set limits on the size of the vocabulary.
 
     vocab = set()
 
-    df = pd.read_csv(dataset)
+    df = pd.DataFrame([(label_list, documents) for label_list, documents in zip(label_list, documents)])
+    print(df)
 
     grouped_df = df.groupby(df.columns[0])
 
@@ -829,9 +831,9 @@ def compute_pure_term_burstiness(dataset):
         t0 = time.time()
 
         vectorizer = CountVectorizer(min_df=min_yearly_df)
-        print(a_group.iloc[:, 4].head(10))
+        print(a_group.iloc[:,1].head(10))
 
-        vector = vectorizer.fit_transform(a_group.iloc[:, 4])
+        vector = vectorizer.fit_transform(a_group.iloc[:, 1])
 
         # Save the new words
         vocab = vocab.union(vectorizer.vocabulary_.keys())
@@ -847,7 +849,7 @@ def compute_pure_term_burstiness(dataset):
     print(len(vocabulary.keys()))
 
     vocab = pd.DataFrame(vocabulary.items())[[0]]
-    vocab.to_csv('../sample_data/vocab.csv')
+    #vocab.to_csv('../sample_data/vocab.csv')
     # Go year by year and vectorise based on our vocabulary
     # We read in the cleaned data and vectorise it according to our vocabulary.
     vectors = []
@@ -861,7 +863,7 @@ def compute_pure_term_burstiness(dataset):
 
         vectorizer = CountVectorizer(vocabulary=vocabulary)
 
-        vectors.append(vectorizer.fit_transform(a_group.iloc[:, 4]))
+        vectors.append(vectorizer.fit_transform(a_group.iloc[:, 1]))
         time_stamp = a_group.iloc[:, 0].tolist()[0]
         print(time_stamp, time.time() - t0)
 
@@ -886,15 +888,12 @@ def compute_pure_term_burstiness(dataset):
 
     # Stack vectors vertically, so that we have the full history of popularity/time for each term
     stacked_vectors = np.stack(summed_vectors, axis=1)
-
-    print(stacked_vectors.shape)
+    #print(stacked_vectors.shape)
 
     stacked_vectors = pd.DataFrame(stacked_vectors.transpose(), columns=list(vocabulary.keys()))
+    #print(stacked_vectors.shape)
 
-    print(stacked_vectors.shape)
-
-    stacked_vectors.to_csv('../sample_data/stacked_vectors.csv')
-
+    #stacked_vectors.to_csv('../sample_data/stacked_vectors.csv')
     #stacked_vectors.index = list(range(20170101, 20171024))
     print(stacked_vectors.index)
 
@@ -903,5 +902,11 @@ def compute_pure_term_burstiness(dataset):
     #print(hist)
     burstiness_over_time = calc_burstiness(hist, scaling_factor)
     #burstiness = max_burstiness(burstiness_over_time)
+
+    dir = "./results"
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    burstiness_over_time.to_csv(dir + '/bursty_terms.csv')
 
     print(burstiness_over_time)
