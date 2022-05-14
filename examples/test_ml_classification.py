@@ -32,7 +32,7 @@ if __name__ == '__main__':
     #mode is either train or predict
     mode = 'train'
     if mode is 'train':
-        input_file ='../sample_data/3_class_naver_news.csv'
+        input_file ='../sample_data/navernews.txt'
         # 1. text processing and representation
         corpus = ptm.CorpusFromFieldDelimitedFileForClassification(input_file,
                                                                    delimiter=',',
