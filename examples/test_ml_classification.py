@@ -1,5 +1,6 @@
 from treform.document_classification.ml_textclassification import documentClassifier
 import treform as ptm
+import os
 
 if __name__ == '__main__':
     document_classifier = documentClassifier()
@@ -27,6 +28,10 @@ if __name__ == '__main__':
     model_name = ml_algorithms[7]
 
     #document category and id map
+    
+    if not os.path.exists("../models/"):
+        os.mkdir("../models/")
+    
     id_category_json = '../models/ml_id_category.json'
 
     #mode is either train or predict
